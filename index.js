@@ -104,6 +104,7 @@ app.get(
   '/',
   (req, res) => {
     const answer = [{
+      name: 'generate transaction',
       description: 'Get a raw transaction document without a signature, from one issuer to one receiver',
       url: '/:pubkeyA/:pubkeyB/:amount',
       method: 'GET',
@@ -155,6 +156,7 @@ app.get(
         url: '/public_key_issuer/public_key_receiver/500?currency=g1-test'
       }
     }, {
+      name: 'post transaction',
       description: 'Post a transaction document on a Duniter instance related to an old transaction document generated with the previous operation, and a dedicated signature. Reject the request if the document is not validated by a peer.',
       url: `/:pubkeyA`,
       method: 'POST',
@@ -174,6 +176,7 @@ app.get(
         description: 'transaction document signature.'
       }
     }, {
+      name: 'post currency',
       description: 'Post a new array of currency endpoints. If currency already exist, the request is rejected. Require authentication.',
       url: `/:currency`,
       method: 'POST',
@@ -186,6 +189,7 @@ app.get(
         description: 'Array of endpoints to use.'
       }
     }, {
+      name: 'update currency',
       description: 'Update an existing array of currency endpoints. Require authentication.',
       url: `/:currency`,
       method: 'PUT',
@@ -198,6 +202,7 @@ app.get(
         description: 'Array of endpoints to use.'
       }
     }, {
+      name: 'delete currency',
       description: 'Delete an existing array of currency endpoints. Require authentication.',
       url: `/:currency`,
       method: 'DELETE',
