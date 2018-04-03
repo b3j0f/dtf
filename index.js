@@ -155,7 +155,7 @@ app.get(
         url: '/public_key_issuer/public_key_receiver/500?currency=g1-test'
       }
     }, {
-      description: 'Post a transaction document on a Duniter instance. Reject the request is the document is not validated by a peer.',
+      description: 'Post a transaction document on a Duniter instance related to an old transaction document generated with the previous operation, and a dedicated signature. Reject the request if the document is not validated by a peer.',
       url: `/:pubkeyA`,
       method: 'POST',
       params: {
