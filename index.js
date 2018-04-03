@@ -2,22 +2,22 @@ const request = require('request')
 const express = require('express')
 const app = express()
 
-const query = req => {
+const query = (res, req) => {
   Object.assign(req.query, defaultQuery)
-  const {node} = req.query
+  const {node, currency} = req.query
   if (typeof node === 'function') {
-    req.query.node = node()
+    req.query.node = node(res, currency)
   }
   return req.query
 }
 
-const params = (req, names = ['pubkeyA', 'pubkeyB', 'amount']) => {
+const params = (res, req, names = ['pubkeyA', 'pubkeyB', 'amount']) => {
   const result = {}
   names.forEach(
     name => {
       const value = req.params[name]
       if (value === undefined) {
-        throw new Error(`${name} is a required parameter`)
+        return res.status(500).send(`${name} is a required parameter`)
       }
       result[name] = value
     }
@@ -26,13 +26,14 @@ const params = (req, names = ['pubkeyA', 'pubkeyB', 'amount']) => {
 }
 
 const endpointsByCurrency = {
-  g1: ['https://g1.imirhil.fr']
+  g1: ['https://g1.imirhil.fr'],
+  ['g1-test']: ['https://g1-test.cgeek.fr']
 }
 
-const getEndpoint = (currency = defaultQuery.currency) => {
+const getEndpoint = (res, currency = defaultQuery.currency) => {
   const endpoints = endpointsByCurrency[currency]
   if (endpoints === undefined) {
-    throw Error(`Unknown currency ${currency}`)
+    return res.status(500).send(`Unknown currency ${currency}`)
   }
   const rand = Math.floor((Math.random() * endpoints.length) + 0)
   const endpoint = endpoints[rand]
@@ -44,9 +45,9 @@ const getEndpoint = (currency = defaultQuery.currency) => {
     (error, response, body) => {
       if (error || response.statusCode !== 200) {
         if (endpoints.length === 1) {
-          throw new Error(`starting ${endpoint} is not up`)
+          return res.status(500).send(`starting ${endpoint} is not up`)
         }
-        return getEndpoint(currency)
+        return getEndpoint(res, currency)
       }
       const {peers} = JSON.parse(body)
       peers.forEach(
@@ -71,7 +72,7 @@ const getEndpoint = (currency = defaultQuery.currency) => {
 const defaultQuery = {
   node: getEndpoint,
   version: 3,
-  currency: 'g1',
+  currency: 'g1-test',
   locktime: 0,
   base: 0,
   comment: ''
@@ -106,7 +107,7 @@ app.get(
       description: 'Get a raw transaction document without a signature, from one issuer to one receiver',
       url: '/:pubkeyA/:pubkeyB/:amount',
       method: 'GET',
-      query: {
+      params: {
         pubkeyA: {
           description: 'issuer public key'
         },
@@ -117,7 +118,7 @@ app.get(
           description: 'Amount to transfere'
         }
       },
-      params: {
+      query: {
         currency: {
           description: 'Currency to use.',
           type: 'string',
@@ -126,7 +127,7 @@ app.get(
         node: {
           description: 'Duniter node to use.',
           type: 'string',
-          default: 'random between existing nodes'
+          default: `random between existing nodes (example : ${getEndpoint(res)})`
         },
         comment: {
           description: 'Transaction comment',
@@ -155,9 +156,14 @@ app.get(
       }
     }, {
       description: 'Post a transaction document on a Duniter instance. Reject the request is the document is not validated by a peer.',
-      url: `/`,
+      url: `/:pubkeyA`,
       method: 'POST',
       params: {
+        pubkeyA: {
+          description: 'issuer public key'
+        }
+      },
+      query: {
         node: {
           description: 'Duniter node to use.',
           type: 'string',
@@ -165,7 +171,7 @@ app.get(
         }
       },
       body: {
-        description: 'Valid raw transaction document to pose.'
+        description: 'transaction document signature.'
       }
     }, {
       description: 'Post a new array of currency endpoints. If currency already exist, the request is rejected. Require authentication.',
@@ -205,6 +211,8 @@ app.get(
   }
 )
 
+const transactionsByPubkey = {}
+
 app.get(
   '/:pubkeyA/:pubkeyB/:amount',
   (req, res) => {
@@ -212,7 +220,7 @@ app.get(
       pubkeyA,
       pubkeyB,
       amount
-    } = params(req)
+    } = params(res, req)
     const {
       node,
       comment,
@@ -220,7 +228,7 @@ app.get(
       currency,
       locktime,
       base
-    } = query(req)
+    } = query(res, req)
     request(
       `${node}/blockchain/current`,
       function (error, response, body) {
@@ -249,6 +257,9 @@ app.get(
                 break
               }
             }
+            if (tmpAmount > 0) {
+              return res.status(200).send(`Unsufficient found : ${tmpAmount}`)
+            }
             const transaction = prepareTransaction({
               pubkeyA,
               pubkeyB,
@@ -261,6 +272,10 @@ app.get(
               locktime,
               base
             })
+            if (transactionsByPubkey[currency] === undefined) {
+              transactionsByPubkey[currency] = {}
+            }
+            transactionsByPubkey[currency][pubkeyA] = transaction
             // send raw transaction
             res.send(transaction)
           }
@@ -271,17 +286,26 @@ app.get(
 )
 
 app.post(
-  '/',
+  '/:pubkeyA',
   (req, res) => {
-    const {node} = query(req)
-    const transaction = req.body
+    const {node} = query(res, req)
+    const {pubkeyA} = params(res, req, ['pubkeyA'])
+    const signature = req.body
+    const transactions = transactionsByPubkey[currency]
+    if (transactions === undefined) {
+      return res.status(500).send(`Unknown currency : ${currency}`)
+    }
+    const transaction = transactions[pubkeyA]
+    if (transaction === undefined) {
+      return res.status(500).send(`Unknown pubkey ${pubkeyA}. Generate the transaction document before.`)
+    } else {
+      delete transactions[pubkeyA]
+    }
     request(
       {
         url: `${node}/tx/process`,
         method: 'POST',
-        data: {
-          transaction
-        }
+        data: `${transaction}${signature}\n`
       },
       (error, response, body) => {
         if (error) {
