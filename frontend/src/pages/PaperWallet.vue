@@ -18,8 +18,8 @@
             <q-btn label="Generate" @click="submit" />
             <q-inner-loading :visible="loading" />
           </q-field>
-          <qrcode :val="pubkeyB" tag="img" class="responsive" />
-          <qrcode :val="privkeyB" tag="img" class="responsive" />
+          <qrcode v-if="pubkeyB" :value="pubkeyB" tag="img" class="responsive" />
+          <qrcode v-if="privkeyB" :value="privkeyB" tag="img" class="responsive" />
         </div>
       </q-tab-pane>
       <q-tab-pane name="reader">
@@ -51,7 +51,7 @@ export default {
   name: 'PaperWallet',
   data () {
     return {
-      tabs: 'generate',
+      tabs: 'generator',
       issuer: '',
       receiver: '',
       pubkeyA: '',
@@ -62,6 +62,9 @@ export default {
       loading: false
     }
   },
+  mounted () {
+    this.generateKeys()
+  },
   methods: {
     decodeP (value) {
       this.pubkeyA = value
@@ -71,11 +74,11 @@ export default {
     },
     generateKeys () {
       const keyA = this.$nacl.box.keyPair()
-      this.pubkeyA = keyA.publicKey
-      this.privkeyA = keyA.secretKey
+      this.pubkeyA = keyA.publicKey.map(String.fromCharCode).join('')
+      this.privkeyA = keyA.secretKey.map(String.fromCharCode).join('')
       const keyB = this.$nacl.box.keyPair()
-      this.pubkeyB = keyB.publicKey
-      this.privkeyB = keyB.secretKey
+      this.pubkeyB = keyB.publicKey.map(String.fromCharCode).join('')
+      this.privkeyB = keyB.secretKey.map(String.fromCharCode).join('')
     },
     async submit () {
       try {
