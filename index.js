@@ -3,7 +3,7 @@ const express = require('express')
 const app = express()
 
 const query = (res, req) => {
-  Object.assign(req.query, defaultQuery)
+  req.query = Object.assign({}, defaultQuery, req.query)
   const {node, currency} = req.query
   if (typeof node === 'function') {
     req.query.node = node(res, currency)
@@ -52,13 +52,16 @@ const getEndpoint = (res, currency = defaultQuery.currency) => {
       const {peers} = JSON.parse(body)
       peers.forEach(
         peer => {
+          const TYPES = ['BMAS', 'BASIC_MERKLED_API']
           if (peer.status === 'UP') {
             const pendpoints = peer.endpoints
             pendpoints.forEach(
               pendpoint => {
-                const entries = pendpoint.split(' ')
-                const eurl = `${entries[1]}:${entries[entries.length - 1]}`
-                endpoints.push(eurl)
+                const [type, ...entries] = pendpoint.split(' ')
+                if (TYPES.indexOf(type) !== -1) {
+                  const eurl = `https:\/\/${entries[0]}:${entries[entries.length - 1]}`
+                  endpoints.push(eurl)
+                }
               }
             )
           }
@@ -78,8 +81,6 @@ const defaultQuery = {
   comment: ''
 }
 
-getEndpoint()
-
 const prepareTransaction = ({
   pubkeyA,
   pubkeyB,
@@ -90,13 +91,15 @@ const prepareTransaction = ({
   version,
   currency,
   locktime,
-  base
+  base,
+  remind
 } = defaultQuery) => {
+  console.log(remind, `Outputs: \n${amount}:${base}:SIG(${pubkeyB})${remind > 0 ? `\n${remind}:${base}:SIG(${pubkeyA})` : ''}\n`)
   return `Version: ${version}\n`+`Type: Transaction\n`+
     `Currency: ${currency}\n`+`Blockstamp: ${block.number}-${block.hash}\n`+
     `Locktime: ${locktime}\n`+`Issuers: \n${pubkeyA}\n`+
-    `Inputs: \n${inputs.join('\n')}\n`+`Unlocks: \n0:SIG(0)\n`+
-    `Outputs: \n${amount}:${base}:SIG(${pubkeyB})\n`+
+    `Inputs: \n${inputs.join('\n')}\n`+`Unlocks: ${inputs.map((input, index) => `\n${index}:SIG(0)`)}\n`+
+    `Outputs: \n${amount}:${base}:SIG(${pubkeyB})${remind > 0 ? `\n${remind}:${base}:SIG(${pubkeyA})` : ''}\n`+
     `Comment: ${comment}\n`
 }
 
@@ -252,19 +255,34 @@ app.get(
               return res.status(response.statusCode).send(body)
             }
             const inputs = []
-            let tmpAmount = amount
+            let amountToRetrieve = amount
             const {sources} = JSON.parse(body)
             for (let source of sources) {
-              const amountToRetrieve = tmpAmount > source.amount ? source.amount : (source.amount - tmpAmount)
-              tmpAmount -= amountToRetrieve
-              inputs.push(`${amountToRetrieve}:T:${source.identifier}:${source.noffset}`)
-              if (tmpAmount < 0) {
+              const {noffset, type, identifier} = source
+              const sourceAmount = source.amount
+              console.log(amountToRetrieve, sourceAmount)
+              amountToRetrieve -= sourceAmount
+              let input
+              switch (source.type) {
+                case 'D':
+                  input = `${sourceAmount}:D:${pubkeyA}:${noffset}`
+                  break
+                case 'T':
+                  input = `${sourceAmount}:T:${identifier}:${noffset}`
+                  break
+                default:
+                  return res.status(500).send(`Unknown source type : ${type}`)
+              }
+              inputs.push(input)
+              if (amountToRetrieve <= 0) {
                 break
               }
             }
-            if (tmpAmount > 0) {
-              return res.status(200).send(`Unsufficient found : ${tmpAmount}`)
+            if (amountToRetrieve > 0) {
+              return res.status(200).send(`Unsufficient found : ${amountToRetrieve}`)
             }
+            amountToRetrieve = Math.abs(amountToRetrieve)
+            console.log(amountToRetrieve)
             const transaction = prepareTransaction({
               pubkeyA,
               pubkeyB,
@@ -275,7 +293,8 @@ app.get(
               version,
               currency,
               locktime,
-              base
+              base,
+              remind: amountToRetrieve
             })
             if (transactionsByPubkey[currency] === undefined) {
               transactionsByPubkey[currency] = {}
