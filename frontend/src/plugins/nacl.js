@@ -1,5 +1,6 @@
 // import something here
 import nacl from 'tweetnacl'
+nacl.util = require('tweetnacl-util')
 
 const NACL = {
   install (Vue, options) {

@@ -41,7 +41,7 @@ module.exports = function (ctx) {
       }
     },
     devServer: {
-      // https: true,
+      https: true,
       // port: 8080,
       open: true // opens browser window automatically
     },
@@ -49,6 +49,10 @@ module.exports = function (ctx) {
     framework: {
       components: [
         'QBtn',
+        'QCard',
+        'QCardTitle',
+        'QCardMain',
+        'QColor',
         'QField',
         'QIcon',
         'QInnerLoading',
@@ -63,9 +67,11 @@ module.exports = function (ctx) {
         'QListHeader',
         'QPageContainer',
         'QPage',
+        'QSelect',
         'QTab',
         'QTabPane',
         'QTabs',
+        'QToggle',
         'QToolbar',
         'QToolbarTitle'
       ],
