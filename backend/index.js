@@ -1,5 +1,7 @@
 const request = require('request')
 const express = require('express')
+const nacl = require('tweetnacl')
+nacl.util = require('tweetnacl-util')
 const app = express()
 
 const query = (res, req) => {
@@ -109,7 +111,7 @@ app.get(
     const answer = [{
       name: 'generate transaction',
       description: 'Get a raw transaction document without a signature, from one issuer to one receiver',
-      url: '/:pubkeyA/:pubkeyB/:amount',
+      url: '/tx/:pubkeyA/:pubkeyB/:amount',
       method: 'GET',
       params: {
         pubkeyA: {
@@ -156,12 +158,12 @@ app.get(
       },
       example: {
         description: 'The issuer with public key "public_key_issuer" is asking for a transaction document for the receiver "public_key_receiver" with an amount of 500 on the currency "g1-test"',
-        url: '/public_key_issuer/public_key_receiver/500?currency=g1-test'
+        url: '/tx/public_key_issuer/public_key_receiver/500?currency=g1-test'
       }
     }, {
       name: 'post transaction',
       description: 'Post a transaction document on a Duniter instance related to an old transaction document generated with the previous operation, and a dedicated signature. Reject the request if the document is not validated by a peer.',
-      url: `/:pubkeyA`,
+      url: `/tx/:pubkeyA`,
       method: 'POST',
       params: {
         pubkeyA: {
@@ -179,11 +181,21 @@ app.get(
         description: 'transaction document signature.'
       }
     }, {
-      name: 'post currency',
-      description: 'Post a new array of currency endpoints. If currency already exist, the request is rejected. Require authentication.',
-      url: `/:currency`,
-      method: 'POST',
+      name: 'get currency endpoints',
+      description: 'Get array of currency endpoints by currencies.',
+      url: `/endpoints`,
+      method: 'GET',
       query: {
+        currency: {
+          description: 'Specific currency to retrieve'
+        }
+      }
+    }, {
+      name: 'post currency endpoints',
+      description: 'Post a new array of currency endpoints. If currency already exist, the request is rejected. Require authentication.',
+      url: `/endpoints/:currency`,
+      method: 'POST',
+      params: {
         currency: {
           description: 'New currency to use'
         }
@@ -192,11 +204,11 @@ app.get(
         description: 'Array of endpoints to use.'
       }
     }, {
-      name: 'update currency',
+      name: 'update currency endpoints',
       description: 'Update an existing array of currency endpoints. Require authentication.',
-      url: `/:currency`,
+      url: `/endpoints/:currency`,
       method: 'PUT',
-      query: {
+      params: {
         currency: {
           description: 'Currency endpoints to update'
         }
@@ -205,11 +217,11 @@ app.get(
         description: 'Array of endpoints to use.'
       }
     }, {
-      name: 'delete currency',
+      name: 'delete currency endpoints',
       description: 'Delete an existing array of currency endpoints. Require authentication.',
-      url: `/:currency`,
+      url: `/endpoints/:currency`,
       method: 'DELETE',
-      query: {
+      params: {
         currency: {
           description: 'Currency endpoints to delete'
         }
@@ -222,7 +234,7 @@ app.get(
 const transactionsByPubkey = {}
 
 app.get(
-  '/:pubkeyA/:pubkeyB/:amount',
+  '/tx/:pubkeyA/:pubkeyB/:amount',
   (req, res) => {
     const {
       pubkeyA,
@@ -310,7 +322,7 @@ app.get(
 )
 
 app.post(
-  '/:pubkeyA',
+  '/tx/:pubkeyA',
   (req, res) => {
     const {node} = query(res, req)
     const {pubkeyA} = params(res, req, ['pubkeyA'])
@@ -322,9 +334,11 @@ app.post(
     const transaction = transactions[pubkeyA]
     if (transaction === undefined) {
       return res.status(500).send(`Unknown pubkey ${pubkeyA}. Generate the transaction document before.`)
-    } else {
-      delete transactions[pubkeyA]
     }
+    if(! nacl.sign.detached.verify(transaction, signature, pubkeyA)) {
+        return res.status(500).send(`Wrong signature for public key : ${pubkeyA}`)
+    }
+    delete transactions[pubkeyA]
     request(
       {
         url: `${node}/tx/process`,
@@ -343,10 +357,19 @@ app.post(
   }
 )
 
-app.post(
-  '/:currency',
+app.get(
+  '/endpoints',
   (req, res) => {
-    const {currency} = req.currency
+    const {currency} = query(res, req)
+    const result = currency ? {[currency]: endpointsByCurrency[currency]} : endpointsByCurrency
+    res.send(result)
+  }
+)
+
+app.post(
+  '/endpoints/:currency',
+  (req, res) => {
+    const {currency} = params(res, req, ['currency'])
     const endpoints = JSON.parse(req.body)
     if (endpointsByCurrency[currency] !== undefined) {
       return res.status(500).send(`Currency ${currency} already exist`)
@@ -357,9 +380,9 @@ app.post(
 
 
 app.put(
-  '/:currency',
+  '/endpoints/:currency',
   (req, res) => {
-    const {currency} = req.currency
+    const {currency} = params(res, req, ['currency'])
     const endpoints = JSON.parse(req.body)
     if (endpointsByCurrency[currency] === undefined) {
       return res.status(500).send(`Currency ${currency} does not exist`)
@@ -370,9 +393,9 @@ app.put(
 
 
 app.delete(
-  '/:currency',
+  '/endpoints/:currency',
   (req, res) => {
-    const {currency} = req.currency
+    const {currency} = params(res, req, ['currency'])
     if (endpointsByCurrency[currency] === undefined) {
       return res.status(500).send(`Currency ${currency} does not exist`)
     }

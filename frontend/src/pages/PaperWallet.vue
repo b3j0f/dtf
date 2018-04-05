@@ -5,9 +5,19 @@
       <q-tab name="reader" label="Reader" slot="title"/>
       <q-tab-pane name="generator" default>
         <div class="group row">
-          <q-field label="Vos clefs">
-            <q-input v-model="pubkeyA" label="public" />
-            <q-input v-model="privkeyA" label="privée" />
+          <q-field label="Votre portefeuille">
+            <q-tabs v-model="issuer" align="justify">
+              <q-tab name="key" label="Clef privée" slot="title" />
+              <q-tab name="auth" label="identifiants" slot="title" />
+              <q-tab-pane name="key">
+                <q-input v-model="privkeyA" float-label="Clef privée" />
+              </q-tab-pane>
+              <q-tab-pane name="auth">
+                <q-input v-model="username" float-label="Identifiant secret" />
+                <q-input v-model="password" float-label="Mot de passe" />
+              </q-tab-pane>
+            </q-tabs>
+            <q-input v-model="privkeyA" float-label="clef privée" />
           </q-field>
           <q-field label="Portefeuille papier">
             <q-input v-model="pubkeyB" label="Clef publique" />
@@ -52,6 +62,7 @@ export default {
   data () {
     return {
       tabs: 'generator',
+      issuer: 'auth',
       issuer: '',
       receiver: '',
       pubkeyA: '',
@@ -64,6 +75,22 @@ export default {
   },
   mounted () {
     this.generateKeys()
+  },
+  watch: {
+    tabs (val) {
+
+    },
+    issuer (val) {
+      switch (val) {
+        case 'key':
+
+          break
+        case 'auth':
+
+          break
+        default:
+      }
+    }
   },
   methods: {
     decodeP (value) {

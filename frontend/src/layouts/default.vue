@@ -35,19 +35,19 @@
         <q-list-header>Essential Links</q-list-header>
         <q-item to="/paperwallet">
           <q-item-side icon="account_balance_wallet" />
-          <q-item-main label="Paper wallet" sublabel="imprimez et lisez des paper wallets" />
+          <q-item-main label="Paper wallet" sublabel="imprimer et lire des paper wallets" />
         </q-item>
         <q-item to="/chipcard">
           <q-item-side icon="credit_card" />
-          <q-item-main label="Chip card" sublabel="Créez et lisez des cartes à puce" />
+          <q-item-main label="Chip card" sublabel="Créer et lire des cartes à puce" />
         </q-item>
         <q-item to="/sms">
           <q-item-side icon="sms" />
-          <q-item-main label="SMS" sublabel="Envoyez et recevez des SMS" />
+          <q-item-main label="SMS" sublabel="Envoyer et recevoir des SMS" />
         </q-item>
         <q-item to="/nfc">
           <q-item-side icon="nfc" />
-          <q-item-main label="NFC" sublabel="Créez et lisez par le NFC" />
+          <q-item-main label="NFC" sublabel="Créer et lire par le NFC" />
         </q-item>
       </q-list>
     </q-layout-drawer>
