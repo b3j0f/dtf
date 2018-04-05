@@ -96,7 +96,6 @@ const prepareTransaction = ({
   base,
   remind
 } = defaultQuery) => {
-  console.log(remind, `Outputs: \n${amount}:${base}:SIG(${pubkeyB})${remind > 0 ? `\n${remind}:${base}:SIG(${pubkeyA})` : ''}\n`)
   return `Version: ${version}\n`+`Type: Transaction\n`+
     `Currency: ${currency}\n`+`Blockstamp: ${block.number}-${block.hash}\n`+
     `Locktime: ${locktime}\n`+`Issuers: \n${pubkeyA}\n`+
@@ -272,7 +271,6 @@ app.get(
             for (let source of sources) {
               const {noffset, type, identifier} = source
               const sourceAmount = source.amount
-              console.log(amountToRetrieve, sourceAmount)
               amountToRetrieve -= sourceAmount
               let input
               switch (source.type) {
@@ -294,7 +292,6 @@ app.get(
               return res.status(200).send(`Unsufficient found : ${amountToRetrieve}`)
             }
             amountToRetrieve = Math.abs(amountToRetrieve)
-            console.log(amountToRetrieve)
             const transaction = prepareTransaction({
               pubkeyA,
               pubkeyB,
